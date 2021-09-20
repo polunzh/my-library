@@ -19,6 +19,8 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/oned"
+
+	"github.com/polunzh/my-library/book"
 )
 
 func parseISBN(img image.Image) (string, error) {
@@ -115,6 +117,16 @@ func getBookByISBNHandler(c *gin.Context) {
 	c.String(http.StatusOK, isbn)
 }
 
+func addBook(c *gin.Context) {
+	_, err := Insert(&Book{title: "Go 语言高级编程", isbn: "9781985086593", remark: "测试", created_at: "2021-09-20T16:54:05.780Z", updated_at: "2021-09-20T16:54:05.780Z"})
+	if err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("add book error: %s", err.Error()))
+		return
+	}
+
+	c.String(http.StatusOK, "ok")
+}
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -127,6 +139,8 @@ func main() {
 	router.POST("/parse-isbn", parseISBNHandler)
 
 	router.GET("/books/:isbn", getBookByISBNHandler)
+
+	router.POST("/books", addBook)
 
 	router.Run(":8080")
 }
