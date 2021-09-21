@@ -22,6 +22,7 @@ func init() {
 	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 	title TEXT CHECK(LENGTH(title) >= 1),
 	isbn TEXT CHECK(LENGTH(isbn) >= 1),
+	purchase_from TEXT CHECK(LENGTH(purchase_from) >= 1),
 	remark TEXT,
 	created_at TEXT CHECK(LENGTH(created_at) >= 1),
 	updated_at TEXT CHECK(LENGTH(updated_at) >= 1)
@@ -35,12 +36,13 @@ func init() {
 }
 
 type Book struct {
-	Id        int64
-	Title     string
-	Isbn      string
-	Remark    string
-	CreatedAt string
-	UpdatedAt string
+	Id           int64
+	Title        string
+	Isbn         string
+	PurchaseFrom string
+	Remark       string
+	CreatedAt    string
+	UpdatedAt    string
 }
 
 func Insert(data *Book) (int64, error) {
@@ -100,4 +102,47 @@ func FindByISBN(isbn string) (*Book, error) {
 	}
 
 	return nil, rows.Err()
+}
+
+func FindAll() ([]*Book, error) {
+	db, err := sql.Open("sqlite3", "./data/book.db")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	rows, err := db.Query(fmt.Sprintf(`SELECT
+	id, title, isbn, remark, created_at, updated_at
+	FROM book`))
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var books []*Book
+
+	for rows.Next() {
+		var id int64
+		var title string
+		var isbn string
+		var purchaseFrom string
+		var remark string
+		var createdAt string
+		var updatedAt string
+
+		err = rows.Scan(&id, &title, &isbn, &remark, &createdAt, &updatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		books = append(books, &Book{Id: id, Title: title, Isbn: isbn, PurchaseFrom: purchaseFrom, Remark: remark, CreatedAt: createdAt, UpdatedAt: updatedAt})
+	}
+
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+
+	return books, nil
 }

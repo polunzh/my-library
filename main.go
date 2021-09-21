@@ -22,6 +22,29 @@ import (
 	"github.com/polunzh/my-library/dal"
 )
 
+type bookJson struct {
+	Title        string `json:"title" binding:"required"`
+	Isbn         string `json:"isbn" binding:"required"`
+	PurchaseFrom string `json:"purchaseFrom" binding:"required"`
+	Remark       string `json:"remark" binding:"required"`
+}
+
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func parseISBN(img image.Image) (string, error) {
 	bmp, err := gozxing.NewBinaryBitmapFromImage(img)
 	if err != nil {
@@ -122,17 +145,26 @@ func getBookByISBNHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, book)
 }
 
-func addBook(c *gin.Context) {
-	title := c.PostForm("title")
-	isbn := c.PostForm("isbn")
-	remark := c.PostForm("remark")
-	_, err := dal.Insert(&dal.Book{Title: title, Isbn: isbn, Remark: remark})
+func addBookHandler(c *gin.Context) {
+	var book bookJson
+	c.BindJSON(&book)
+	_, err := dal.Insert(&dal.Book{Title: book.Title, Isbn: book.Isbn, PurchaseFrom: book.PurchaseFrom, Remark: book.Remark})
 	if err != nil {
 		c.String(http.StatusInternalServerError, fmt.Sprintf("add book error: %s", err.Error()))
 		return
 	}
 
 	c.String(http.StatusOK, "ok")
+}
+
+func getBooksHandler(c *gin.Context) {
+	books, err := dal.FindAll()
+	if err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("get books error: %s", err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, books)
 }
 
 func main() {
@@ -143,12 +175,17 @@ func main() {
 
 	router := gin.Default()
 	router.MaxMultipartMemory = 1 << 20
+	router.Use(corsMiddleware())
 
-	router.POST("/parse-isbn", parseISBNHandler)
+	group := router.Group("/api")
 
-	router.GET("/books/:isbn", getBookByISBNHandler)
+	group.POST("/parse-isbn", parseISBNHandler)
 
-	router.POST("/books", addBook)
+	group.GET("/books", getBooksHandler)
+
+	group.GET("/books/:isbn", getBooksHandler)
+
+	group.POST("/books", addBookHandler)
 
 	router.Run(":8080")
 }
