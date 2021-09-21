@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"mime/multipart"
-	"os"
 
 	"io/ioutil"
 	"net/http"
@@ -20,7 +19,7 @@ import (
 	"github.com/makiuchi-d/gozxing"
 	"github.com/makiuchi-d/gozxing/oned"
 
-	"github.com/polunzh/my-library/book"
+	"github.com/polunzh/my-library/dal"
 )
 
 func parseISBN(img image.Image) (string, error) {
@@ -106,19 +105,28 @@ func parseISBNHandler(c *gin.Context) {
 func getBookByISBNHandler(c *gin.Context) {
 	isbn := c.Param("isbn")
 
-	isbnKey := os.Getenv("ISBN_KEY")
-	resp, err := http.Get(fmt.Sprintf("https://http://feedback.api.juhe.cn/ISBN&sub=9781985086593&key=%s", isbnKey))
+	// isbnKey := os.Getenv("ISBN_KEY")
+	// resp, err := http.Get(fmt.Sprintf("https://http://feedback.api.juhe.cn/ISBN&sub=9781985086593&key=%s", isbnKey))
+	// if err != nil {
+	// 	c.String(http.StatusInternalServerError, fmt.Sprintf("request isbn error: %s", err.Error()))
+	// }
+
+	// resp.Body.Close()
+
+	book, err := dal.FindByISBN(isbn)
 	if err != nil {
-		c.String(http.StatusInternalServerError, fmt.Sprintf("request isbn error: %s", err.Error()))
+		c.String(http.StatusInternalServerError, "find book by isbn error:%s", err.Error())
+		return
 	}
 
-	resp.Body.Close()
-
-	c.String(http.StatusOK, isbn)
+	c.JSON(http.StatusOK, book)
 }
 
 func addBook(c *gin.Context) {
-	_, err := Insert(&Book{title: "Go 语言高级编程", isbn: "9781985086593", remark: "测试", created_at: "2021-09-20T16:54:05.780Z", updated_at: "2021-09-20T16:54:05.780Z"})
+	title := c.PostForm("title")
+	isbn := c.PostForm("isbn")
+	remark := c.PostForm("remark")
+	_, err := dal.Insert(&dal.Book{Title: title, Isbn: isbn, Remark: remark})
 	if err != nil {
 		c.String(http.StatusInternalServerError, fmt.Sprintf("add book error: %s", err.Error()))
 		return

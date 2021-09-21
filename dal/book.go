@@ -1,14 +1,13 @@
-package main
+package dal
 
 import (
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
-
-var db *sql.DB
 
 func init() {
 	db, err := sql.Open("sqlite3", "./data/book.db")
@@ -20,12 +19,12 @@ func init() {
 
 	sqlStmt := `
 	CREATE TABLE IF NOT EXISTS book(
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	title TEXT,
-	isbn TEXT,
+	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+	title TEXT CHECK(LENGTH(title) >= 1),
+	isbn TEXT CHECK(LENGTH(isbn) >= 1),
 	remark TEXT,
-	created_at TEXT,
-	updated_at TEXT
+	created_at TEXT CHECK(LENGTH(created_at) >= 1),
+	updated_at TEXT CHECK(LENGTH(updated_at) >= 1)
 	)
 	`
 
@@ -36,19 +35,29 @@ func init() {
 }
 
 type Book struct {
-	id         int64
-	title      string
-	isbn       string
-	remark     string
-	created_at string
-	updated_at string
+	Id        int64
+	Title     string
+	Isbn      string
+	Remark    string
+	CreatedAt string
+	UpdatedAt string
 }
 
 func Insert(data *Book) (int64, error) {
+	db, err := sql.Open("sqlite3", "./data/book.db")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	now := time.Now().Format(time.RFC3339)
+	data.CreatedAt = now
+	data.UpdatedAt = now
 	result, err := db.Exec(fmt.Sprintf(`INSERT INTO
 	book(title, isbn, remark, created_at, updated_at)
 	VALUES("%s", "%s", "%s", "%s", "%s")
-	`, data.title, data.isbn, data.remark, data.created_at, data.updated_at))
+	`, data.Title, data.Isbn, data.Remark, data.CreatedAt, data.UpdatedAt))
 
 	if err != nil {
 		return 0, err
@@ -58,6 +67,13 @@ func Insert(data *Book) (int64, error) {
 }
 
 func FindByISBN(isbn string) (*Book, error) {
+	db, err := sql.Open("sqlite3", "./data/book.db")
+
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
 	rows, err := db.Query(fmt.Sprintf(`SELECT
 	id, title, isbn, remark, created_at, updated_at
 	FROM book WHERE isbn=%s`, isbn))
@@ -72,15 +88,15 @@ func FindByISBN(isbn string) (*Book, error) {
 		var title string
 		var isbn string
 		var remark string
-		var created_at string
-		var updated_at string
+		var createdAt string
+		var updatedAt string
 
-		err = rows.Scan(&id, &title, &isbn, &remark, &created_at, &updated_at)
+		err = rows.Scan(&id, &title, &isbn, &remark, &createdAt, &updatedAt)
 		if err != nil {
 			return nil, err
 		}
 
-		return &Book{id: id, title: title, isbn: isbn, remark: remark, created_at: created_at, updated_at: updated_at}, nil
+		return &Book{Id: id, Title: title, Isbn: isbn, Remark: remark, CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
 	}
 
 	return nil, rows.Err()
