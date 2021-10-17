@@ -20,9 +20,9 @@ func init() {
 	sqlStmt := `
 	CREATE TABLE IF NOT EXISTS book(
 	id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-	title TEXT CHECK(LENGTH(title) >= 1),
-	isbn TEXT CHECK(LENGTH(isbn) >= 1),
-	purchase_from TEXT CHECK(LENGTH(purchase_from) >= 1),
+	title TEXT CHECK(LENGTH(title) >= 1) NOT NULL UNIQUE,
+	isbn TEXT CHECK(LENGTH(isbn) >= 1) NOT NULL UNIQUE,
+	purchase_from TEXT,
 	remark TEXT,
 	created_at TEXT CHECK(LENGTH(created_at) >= 1),
 	updated_at TEXT CHECK(LENGTH(updated_at) >= 1)
@@ -68,6 +68,26 @@ func Insert(data *Book) (int64, error) {
 	return result.LastInsertId()
 }
 
+func read(rows *sql.Rows) (*Book, error) {
+	if rows.Next() {
+		var id int64
+		var title string
+		var isbn string
+		var remark string
+		var createdAt string
+		var updatedAt string
+
+		err := rows.Scan(&id, &title, &isbn, &remark, &createdAt, &updatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		return &Book{Id: id, Title: title, Isbn: isbn, Remark: remark, CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
+	}
+
+	return nil, rows.Err()
+}
+
 func FindByISBN(isbn string) (*Book, error) {
 	db, err := sql.Open("sqlite3", "./data/book.db")
 
@@ -85,23 +105,27 @@ func FindByISBN(isbn string) (*Book, error) {
 
 	defer rows.Close()
 
-	if rows.Next() {
-		var id int64
-		var title string
-		var isbn string
-		var remark string
-		var createdAt string
-		var updatedAt string
+	return read(rows)
+}
 
-		err = rows.Scan(&id, &title, &isbn, &remark, &createdAt, &updatedAt)
-		if err != nil {
-			return nil, err
-		}
+func FindById(id string) (*Book, error) {
+	db, err := sql.Open("sqlite3", "./data/book.db")
 
-		return &Book{Id: id, Title: title, Isbn: isbn, Remark: remark, CreatedAt: createdAt, UpdatedAt: updatedAt}, nil
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	rows, err := db.Query(fmt.Sprintf(`SELECT
+	id, title, isbn, remark, created_at, updated_at
+	FROM book WHERE id=%s`, id))
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, rows.Err()
+	defer rows.Close()
+
+	return read(rows)
 }
 
 func FindAll() ([]*Book, error) {

@@ -148,13 +148,14 @@ func getBookByISBNHandler(c *gin.Context) {
 func addBookHandler(c *gin.Context) {
 	var book bookJson
 	c.BindJSON(&book)
-	_, err := dal.Insert(&dal.Book{Title: book.Title, Isbn: book.Isbn, PurchaseFrom: book.PurchaseFrom, Remark: book.Remark})
+	bookId, err := dal.Insert(&dal.Book{Title: book.Title, Isbn: book.Isbn, PurchaseFrom: book.PurchaseFrom, Remark: book.Remark})
 	if err != nil {
 		c.String(http.StatusInternalServerError, fmt.Sprintf("add book error: %s", err.Error()))
 		return
 	}
 
-	c.String(http.StatusOK, "ok")
+
+	c.String(http.StatusOK, fmt.Sprint(bookId))
 }
 
 func getBooksHandler(c *gin.Context) {
@@ -164,7 +165,22 @@ func getBooksHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, books)
+	if len(books) > 0 {
+		c.JSON(http.StatusOK, books)
+		return
+	}
+
+	c.JSON(http.StatusOK, make([]dal.Book, 0))
+}
+
+func getBookHandler(c *gin.Context) {
+	book, err := dal.FindById(c.Param("id"))
+	if err != nil {
+		c.String(http.StatusInternalServerError, fmt.Sprintf("get book by id error:%s", err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, book)
 }
 
 func main() {
@@ -174,7 +190,10 @@ func main() {
 	}
 
 	router := gin.Default()
+
 	router.MaxMultipartMemory = 1 << 20
+
+	router.Use(gin.Recovery())
 	router.Use(corsMiddleware())
 
 	group := router.Group("/api")
@@ -183,7 +202,9 @@ func main() {
 
 	group.GET("/books", getBooksHandler)
 
-	group.GET("/books/:isbn", getBooksHandler)
+	group.GET("/books/isbn/:isbn", getBooksHandler)
+
+	group.GET("/books/:id", getBookHandler)
 
 	group.POST("/books", addBookHandler)
 
